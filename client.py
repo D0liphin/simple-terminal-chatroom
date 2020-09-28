@@ -146,14 +146,14 @@ while True:
                                 textArea.add_text('// unsuccesful')
 
                             textArea.add_text('  ')
-                            _send_msg(f"// {USER} just joined.'")
+                            _send_msg(f"// {USER} just joined.")
 
 
                         elif text[:8] == '!setuser':
                             result = interp.i.search(interp.Text(text), stt_setuser)
                             textArea.add_text(f"// Set username to '{result['username']}'")
                             if client != None:
-                                _send_msg(f"// '{USER}' set username to '{result['username']}'")
+                                _send_msg(f"// {USER} changed their username to '{result['username']}'")
                             USER = result['username']
 
                         elif text[:11] == '!sethistory':
@@ -171,6 +171,8 @@ while True:
                             textArea._update()
                             inputArea._update()
                             Scr._refresh()
+                            _send_msg(f"{USER} left.")
+                            _send_msg(f"!exit")
                             curses.napms(1000)
                             break
 
@@ -201,4 +203,3 @@ while True:
 curses.nocbreak()
 curses.echo()
 curses.endwin()
-input('end')

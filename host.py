@@ -49,12 +49,15 @@ while True:
                 try:
                     msg = client.recv(1024)
                     i = 0
-                    for receiver in CLIENTS:
-                        print(f"trying to send msg : {msg} to {ADDRS[i]}")
-                        i += 1
-                        try: 
-                            receiver.send(msg)
-                            print("\t successful")
-                        except: print(f"\t failed")
+                    if msg == b'!exit':
+                        CLIENTS.remove(client)
+                    else:
+                        for receiver in CLIENTS:
+                            print(f"trying to send msg : {msg} to {ADDRS[i]}")
+                            i += 1
+                            try: 
+                                receiver.send(msg)
+                                print("\t successful")
+                            except: print(f"\t failed")
                     break
                 except: pass
