@@ -13,7 +13,7 @@ srvr.bind((HOST, PORT))
 srvr.listen(5)
 srvr.setblocking(False)
 
-print("succsefully started a server.\n")
+print("succesfully started a server.\n")
 
 
 CLIENTS = []
