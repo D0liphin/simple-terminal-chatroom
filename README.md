@@ -1,2 +1,2 @@
 # simple-terminal-chatroom
-A simple program that allows hosting and connecting to chatrooms.
+A simple program that allows hosting and connecting to chatrooms via a terminal.
