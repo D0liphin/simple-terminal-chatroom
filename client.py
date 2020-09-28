@@ -1,6 +1,7 @@
 import os, sys
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, f"{dir_path}/packages")
+hostsPath = f"{dir_path}/hosts.txt"
 
 import areas, curses, time, random, interp, getpass, socket
 input('start')
@@ -11,18 +12,7 @@ curses.mousemask(curses.ALL_MOUSE_EVENTS)
 curses.mouseinterval(100)
 USER = getpass.getuser()
 
-####################################################################################################################################################################################################################################
-#SOCKET SETUP
-client = None
-'''
-HOST = '127.0.0.1'
-PORT = 8869
 
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect((HOST, PORT))
-client.setblocking(False)
-
-'''
 ####################################################################################################################################################################################################################################
 #DRAWING OF AREAS
 
@@ -41,6 +31,7 @@ for n in range(y): textArea.add_text('    ')
 
 hostArea = areas.TextArea(Scr, position=(0, 0), dimensions=(13, int(y/3)), title='----HOSTS----')
 Brd.fill((0, int(y/3)), (13, int(y/3)), char='-')
+hostArea.history = 50
 
 channelArea = areas.TextArea(Scr, position=(0, int(y/3)+1), dimensions=(13, int(y*2/3)-1), title='---CHANNEL---')
 
@@ -55,14 +46,44 @@ textArea._update()
 inputArea._update()
 
 ####################################################################################################################################################################################################################################
+#SOCKET SETUP
+client = None
+
+stt_hostinfo = interp.Statement('hostinfo',
+'{hostname}: ({port}, {address})')
+
+def _add_host(host):
+    HOSTS[host[0]] = (host[1], host[2])
+    hostArea.add_text(f"• {host[0]}")
+    hostArea._update()
+
+HOSTS = {}
+
+with open(hostsPath) as f:
+    contents = f.read().split('/')
+    for host in contents:
+        try:
+            ret = interp.i.search(interp.Text(host), stt_hostinfo)
+            HOSTS[ret['hostname']] = (int(ret['port']), ret['address'])
+        except: pass
+    
+
+for i in HOSTS.keys():
+    hostArea.add_text(f"• {i}")
+hostArea._update()
+
+####################################################################################################################################################################################################################################
 #COMMANDS
 COMMANDS = [
     "  '!directconnect {port} {host}' | Attempts to connect to a host socket directly.",
-    "  '!setuser \"{username}\"'        | Allows you to set your username.",
-    "  '!sethistory {length}'         | Increases the number of messages to store in scrollable history - may affect performance, likely not noticeable below 500.",
-    "  '!exit'                        | Closes the application and returns you to the terminal (if you opened through one)",
-    "  '!help'                        | Prints this message",
-    "  '!jp 「 {text}」 '               | Allows you to type a message in japanese'"]
+    "  '!connect \"{name}\" | Connects to a saved host.",
+    "  '!addhost \"{name}\" {port} {host}' | Saves a host for easier connection.",
+    "  '!removehost \"{name}\" | Removes a saved host.",
+    "  '!setuser \"{username}\"' | Allows you to set your username.",
+    "  '!sethistory {length}' | Increases the number of messages to store in scrollable history - may affect performance, likely not noticeable below 500.",
+    "  '!exit' | Closes the application and returns you to the terminal (if you opened through one)",
+    "  '!help' | Prints this message",
+    "  '!jp 「 {text}」 ' | Allows you to type a message in japanese'",]
 
 
 stt_directconnect = interp.Statement('directconnect',
@@ -73,6 +94,12 @@ stt_sethistory = interp.Statement('sethistory',
 '!sethistory {length} ')
 stt_jp = interp.Statement('jp',
 '!jp 「{japanese}」 ')
+stt_addhost = interp.Statement('addhost',
+'!addhost "{name}" {port} {host} ')
+stt_connect = interp.Statement('connect',
+'!connect "{name}"')
+stt_removehost = interp.Statement('removehost',
+'!removehost "{name}"')
 
 ####################################################################################################################################################################################################################################
 #INPUT
@@ -127,6 +154,11 @@ while True:
                             textArea.add_text('  ')
                         
                         elif text[:14] == '!directconnect':
+                            if client != None:
+                                _send_msg(f"{USER} left.")
+                                _send_msg(f"!exit")
+
+                            
                             result = interp.i.search(interp.Text(text), stt_directconnect)
                             port, host = result['port'], result['host']
                             textArea.add_text('  ')
@@ -144,10 +176,54 @@ while True:
                                 textArea.add_text('// succesfully connected')
                             except:
                                 textArea.add_text('// unsuccesful')
+                                client = None
 
+                            if client != None:
+                                textArea.add_text('  ')
+                                _send_msg(f"// {USER} just joined.")
+                            
+
+                        elif text[:8] == '!connect':
+                            if client != None:
+                                _send_msg(f"{USER} left.")
+                                _send_msg(f"!exit")
+
+                            result = interp.i.search(interp.Text(text), stt_connect)
+                            host = HOSTS[result['name']]
+                            port, host = host[0], host[1]
                             textArea.add_text('  ')
-                            _send_msg(f"// {USER} just joined.")
+                            textArea.add_text(f"// Attempting to connect")
+                            textArea.add_text(f"// PORT: {port}")
+                            textArea.add_text(f"// HOST: {host}")
+                            textArea._update()
 
+                            try:
+                                HOST = host
+                                PORT = int(port)
+
+                                client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                                client.connect((HOST, PORT))
+                                client.setblocking(False)
+                                textArea.add_text('// successfully connected')
+                            except:
+                                textArea.add_text('// unsuccesful')
+                                client = None
+
+                            if client != None:
+                                textArea.add_text('  ')
+                                _send_msg(f"// {USER} just joined.")
+
+                        elif text[:8] == '!addhost':
+                            result = interp.i.search(interp.Text(text), stt_addhost)
+                            _add_host((result['name'], result['port'], result['host']))
+                            textArea.add_text(f"// added host '{result['name']}'")
+
+                        elif text[:11] == '!removehost':
+                            result = interp.i.search(interp.Text(text), stt_removehost)
+                            HOSTS.pop(result['name'])
+                            try: hostArea.text.remove('• ' + result['name'])
+                            except: textArea.add_text(f"// failed, {hostArea.text}")
+                            textArea.add_text(f"// removed host '{result['name']}'")
 
                         elif text[:8] == '!setuser':
                             result = interp.i.search(interp.Text(text), stt_setuser)
@@ -192,13 +268,18 @@ while True:
                         textArea.add_text('  ')
                         textArea.add_text('// invalid command')
                         textArea.add_text('  ')
-                
+        
+        hostArea._update()
         textArea._update()
         inputArea._update()
+        
 
     except:
         pass
 
+with open(hostsPath, 'w') as f:
+    for thing in HOSTS.keys():
+        f.write(f"{thing}: ({HOSTS[thing][0]}, {HOSTS[thing][1]})/")
 ####################################################################################################################################################################################################################################
 curses.nocbreak()
 curses.echo()
